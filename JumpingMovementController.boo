@@ -41,22 +41,26 @@ Style notes
 
 	def Update(): 
 	""" 
-
+	Moves on the 2-d plane like BaiscMovementController, but if users presses the jump
+	input we add upward momentum
 	""" 
-
 		frame_speed = _Speed * Time.deltaTime 
-		left_right = Input.GetAxis(_HORIZ) * frame_speed
-		forward_back = Input.GetAxis(_VERT) * frame_speed
 
+		# only allow jumps if we are on the ground!
 		if transform.position.y == 0 :
 			_Momentum += Input.GetAxis(_JUMP) * _JumpSpeed
 
 		up =  _Momentum * Time.deltaTime
+		left_right = Input.GetAxis(_HORIZ) * frame_speed
+		forward_back = Input.GetAxis(_VERT) * frame_speed
 
 		transform.Translate(Vector3(left_right, up, forward_back), Space.Self)
 
 	def LateUpdate():
-
+	"""
+	If the unit is in the air, deduct some momentum. If it is below the ground,
+	zero out both momentum and the height so we don't fall through the floor
+	"""
 		if transform.position.y > 0:
 			_Momentum -= _Gravity * Time.deltaTime;
 		else:
