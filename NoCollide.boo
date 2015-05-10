@@ -46,6 +46,8 @@ something else.
 		_collisions.Add(coll)
 		#Debug.Log(coll)
 
+	def OnCollisionStay(coll as Collision):
+		_collisions.Add(coll)
 
 	def LateUpdate():
 		if len(_collisions):
