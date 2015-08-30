@@ -51,7 +51,7 @@ Sorted list of Addresses.  Pops highest weights first
 
 	def pop():
 		result = m_list.Keys[0]
-		m_list.RemoveAt(0)
+		m_list.RemoveAt(0 )
 		return result
 
 	def add( weight as single, addr as Address):
@@ -190,21 +190,23 @@ public class MapSearch:
 			for weightedLink in m_map.links(current_node):
 				next_link = weightedLink.address
 				next_cost = weightedLink.weight
-				if next_link == end:
-					found = cost_to_here
+
+	
 
 				if  next_link not in m_costs:
 					m_costs[next_link] = single.MaxValue
 
 				
 				node_cost = m_costs[next_link]
-
-				predicted_cost = cost_to_here + next_cost + \
-									heuristic(current_node, next_link, end)
-				if predicted_cost < node_cost and predicted_cost < found:
-					m_OpenList.add(next_cost, next_link) # does this sort right?
+				predicted_cost = cost_to_here + next_cost 
+				if next_link == end:	
+					found = Mathf.Min(found, cost_to_here + next_cost)
+				if predicted_cost < node_cost and predicted_cost <= found:
+					guess_cost =  heuristic(next_link, end)
+					m_OpenList.add(	guess_cost + cost_to_here, next_link)# does this sort right?
 					m_links[next_link] = current_node
 					m_costs[next_link] = predicted_cost
+					Debug.Log(next_link.ToString())
 
 		if found == single.MaxValue:
 			return List[of Address]()
@@ -222,8 +224,8 @@ public class MapSearch:
 		return result
 
 
-	def heuristic(current as Address, next as Address, end as Address):
-		return Vector2.Distance(Vector2(end.x, end.y), Vector2(next.x, next.y))
+	def heuristic(current as Address, end as Address):
+		return (m_map.x_size * m_map.y_size) - (Vector2(end.x, end.y) -  Vector2(current.x, current.y)).sqrMagnitude
 
 public class boomap(MonoBehaviour):
 	
@@ -289,7 +291,8 @@ class MapHandle (Editor):
 				if ad in bm.m_search.m_costs:
 					pos2 = pos + Vector3(0,0, .25)				
 					cost = bm.m_search.m_costs[ad]
-					Handles.Label(pos2, cost.ToString())
+					if cost < single.MaxValue:
+						Handles.Label(pos2, string.Format("{0:0.0}", cost))
 				#c2 = Handles.Slider(pos2, Vector3.up, cost, Handles.ArrowCap, .01 ).z
 				#f GUI.changed:
 				#	bm.m_map.cell_set(ad, c2)
