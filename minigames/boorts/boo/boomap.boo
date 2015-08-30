@@ -61,6 +61,7 @@ Sorted list of Addresses.  Pops highest weights first
 
 
 
+
 public class Edge (IComparable):
 """
 From > To address pair
@@ -164,8 +165,10 @@ public class MapSearch:
 	m_OpenList as OpenList
 	m_map as Map
 	m_links as Dictionary[of Address, Address]
-	public m_costs as Dictionary[of Address, single]
 
+	public m_costs as Dictionary[of Address, single]
+	public m_accuracy = 5
+	public m_steer = 1
 
 	def constructor(map_data as Map):
 		m_map = map_data
@@ -178,12 +181,15 @@ public class MapSearch:
 
 		m_costs.Clear()
 		m_links.Clear()
+		m_OpenList = OpenList()
 		m_costs[start] = -1.0
 		m_links[start] = start
 		m_OpenList.add(0.0, start) 
 
 		found = single.MaxValue
-		while m_OpenList.count > 0:
+		found_count = 0
+
+		while m_OpenList.count > 0 and found_count < m_accuracy:
 			current_node = m_OpenList.pop() 
 			cost_to_here = m_costs[current_node]
 
@@ -191,22 +197,21 @@ public class MapSearch:
 				next_link = weightedLink.address
 				next_cost = weightedLink.weight
 
-	
-
 				if  next_link not in m_costs:
 					m_costs[next_link] = single.MaxValue
-
 				
 				node_cost = m_costs[next_link]
 				predicted_cost = cost_to_here + next_cost 
+
 				if next_link == end:	
-					found = Mathf.Min(found, cost_to_here + next_cost)
-				if predicted_cost < node_cost and predicted_cost <= found:
+					found = Mathf.Min(found, predicted_cost)
+					found_count += 1
+
+				if predicted_cost < node_cost and predicted_cost < found:
 					guess_cost =  heuristic(next_link, end)
-					m_OpenList.add(	guess_cost + cost_to_here, next_link)# does this sort right?
+					m_OpenList.add(	guess_cost, next_link)# does this sort right?
 					m_links[next_link] = current_node
 					m_costs[next_link] = predicted_cost
-					Debug.Log(next_link.ToString())
 
 		if found == single.MaxValue:
 			return List[of Address]()
@@ -225,7 +230,8 @@ public class MapSearch:
 
 
 	def heuristic(current as Address, end as Address):
-		return (m_map.x_size * m_map.y_size) - (Vector2(end.x, end.y) -  Vector2(current.x, current.y)).sqrMagnitude
+		return current.x
+		return Vector2.Distance(Vector2(end.x, end.y) ,Vector2(current.x, current.y)) *  m_steer
 
 public class boomap(MonoBehaviour):
 	
@@ -237,10 +243,14 @@ public class boomap(MonoBehaviour):
 	public m_map as Map
 	public m_results as (Address)
 	public m_search as MapSearch
+	public m_accuracy = 5
+	public m_steer = 1
 	
 	def OnValidate():
 		m_map = Map(m_width, m_height)
 		m_search = MapSearch(m_map)
+		m_search.m_accuracy = m_accuracy
+		m_search.m_steer = m_steer
 		result = m_search.search(Address(m_start.x, m_start.y), Address(m_end.x, m_end.y))
 		m_results = array(Address, result)
 	
@@ -287,7 +297,7 @@ class MapHandle (Editor):
 			for y in range(bm.m_map.y_size):
 				ad = Address(x, y)
 				pos = Vector3(x +0.25 , 0, y + 0.5)
-				Handles.Label(pos, ad.ToString())
+				#Handles.Label(pos, ad.ToString())
 				if ad in bm.m_search.m_costs:
 					pos2 = pos + Vector3(0,0, .25)				
 					cost = bm.m_search.m_costs[ad]
