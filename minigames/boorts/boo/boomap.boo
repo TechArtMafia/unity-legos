@@ -50,16 +50,14 @@ Sorted list of Addresses.  Pops highest weights first
 			return m_list.Count
 
 	def pop():
-		result = m_list.Keys[count - 1]
-		m_list.RemoveAt(count - 1 )
+		result = m_list.Keys[0]
+		m_list.RemoveAt(0)
 		return result
 
 	def add( weight as single, addr as Address):
 		if addr in m_list:
 			m_list.Remove(addr)
-		m_list.Add( addr, weight)
-
-
+		m_list.Add( addr, weight )
 
 
 
@@ -94,6 +92,9 @@ From > To address pair
 		return GetHashCode().CompareTo(other.GetHashCode())
 
 public class WeightedLink:
+"""
+bundle a destination, weight pair
+"""
 	public address as Address
 	public weight as single
 
@@ -125,7 +126,6 @@ public class Map:
 			m_cells[addr] = 1.0
 			for conn in connections(addr):
 				m_edges[Edge(addr, conn)] = addr.dist(conn)
-		Debug.Log(string.Format("{0} edges", m_edges.Count))
 
 
 	def connections(addr as Address):
@@ -164,7 +164,7 @@ public class MapSearch:
 	m_OpenList as OpenList
 	m_map as Map
 	m_links as Dictionary[of Address, Address]
-	m_costs as Dictionary[of Address, single]
+	public m_costs as Dictionary[of Address, single]
 
 
 	def constructor(map_data as Map):
@@ -182,34 +182,31 @@ public class MapSearch:
 		m_links[start] = start
 		m_OpenList.add(0.0, start) 
 
-		found = false
-		while m_OpenList.count > 0 and not found:
+		found = single.MaxValue
+		while m_OpenList.count > 0:
 			current_node = m_OpenList.pop() 
 			cost_to_here = m_costs[current_node]
-			Debug.Log(current_node)
 
 			for weightedLink in m_map.links(current_node):
 				next_link = weightedLink.address
 				next_cost = weightedLink.weight
 				if next_link == end:
-					m_links[next_link] = current_node
-					found = true
-					break
+					found = cost_to_here
 
 				if  next_link not in m_costs:
 					m_costs[next_link] = single.MaxValue
 
 				
+				node_cost = m_costs[next_link]
 
 				predicted_cost = cost_to_here + next_cost + \
 									heuristic(current_node, next_link, end)
-				node_cost = m_costs[next_link]
-				if predicted_cost < node_cost and predicted_cost >= cost_to_here:
-					m_OpenList.add(predicted_cost, next_link) # does this sort right?
+				if predicted_cost < node_cost and predicted_cost < found:
+					m_OpenList.add(next_cost, next_link) # does this sort right?
 					m_links[next_link] = current_node
 					m_costs[next_link] = predicted_cost
 
-		if not found:
+		if found == single.MaxValue:
 			return List[of Address]()
 
 		return recurse_path(start, end)
@@ -226,19 +223,77 @@ public class MapSearch:
 
 
 	def heuristic(current as Address, next as Address, end as Address):
-		return 0.0
+		return Vector2.Distance(Vector2(end.x, end.y), Vector2(next.x, next.y))
 
 public class boomap(MonoBehaviour):
 	
-	def Start():
-		m = Map(12,12)
-		test = MapSearch(m)
-		start = Address(10,0)
-		end = Address(4,7)
-		blocker = Edge(Address(10,3), Address(10,2))
-		m.edge_set(blocker,10)
-		blocker = Edge(Address(10,2), Address(10,3))
-		m.edge_set(blocker,10)
+	public m_width = 10
+	public m_height = 10
+	public m_start as Vector2
+	public m_end as Vector2
+			
+	public m_map as Map
+	public m_results as (Address)
+	public m_search as MapSearch
+	
+	def OnValidate():
+		m_map = Map(m_width, m_height)
+		m_search = MapSearch(m_map)
+		result = m_search.search(Address(m_start.x, m_start.y), Address(m_end.x, m_end.y))
+		m_results = array(Address, result)
+	
 
-		for res in test.search(start, end):
-			Debug.Log(string.Format("...{0}", res))
+			
+	def OnDrawGizmosSelected():
+		t = gameObject.transform.localToWorldMatrix
+		p = gameObject.transform.position
+		Gizmos.matrix = transform.localToWorldMatrix
+		Gizmos.color = Color.gray
+		for x in range(m_map.x_size + 1):
+			st = Vector3(x, 0, 0)
+			en = Vector3(x, 0, m_map.y_size)
+			Gizmos.DrawLine(st, en)
+			
+			
+		for y in range(0, m_map.y_size + 1):
+			st = Vector3(0,0, y)
+			en = Vector3(m_map.x_size, 0, y)
+			Gizmos.DrawLine(st, en)
+			
+		if len(m_results) > 0:
+			seg = [Vector3(i.x + .5, 0, i.y + .5) for i in m_results]
+			Gizmos.color = Color.red
+			for a as Vector3, b as Vector3 in zip(seg, seg[1:]):
+				Gizmos.DrawLine (a, b)
+			
+						
+			Gizmos.DrawCube( Vector3(m_end.x + .5, 0, m_end.y + .5), Vector3(.25,.25,.25))
+		Gizmos.color = Color.green
+		Gizmos.DrawCube( Vector3(m_start.x + .5, 0, m_start.y + .5), Vector3(.25,.25,.25))
+
+[CustomEditor(boomap)]
+class MapHandle (Editor):
+	
+	def OnSceneGUI():
+		bm = target as boomap
+		go = bm.gameObject
+		t = go.transform.localToWorldMatrix
+		p = go.transform.position
+		Handles.color = Color.yellow
+		Handles.matrix = t
+		for x in range(bm.m_map.x_size):
+			for y in range(bm.m_map.y_size):
+				ad = Address(x, y)
+				pos = Vector3(x +0.25 , 0, y + 0.5)
+				Handles.Label(pos, ad.ToString())
+				if ad in bm.m_search.m_costs:
+					pos2 = pos + Vector3(0,0, .25)				
+					cost = bm.m_search.m_costs[ad]
+					Handles.Label(pos2, cost.ToString())
+				#c2 = Handles.Slider(pos2, Vector3.up, cost, Handles.ArrowCap, .01 ).z
+				#f GUI.changed:
+				#	bm.m_map.cell_set(ad, c2)
+				#	SceneView.RepaintAll()
+				#	Debug.Log(c2)
+
+				
