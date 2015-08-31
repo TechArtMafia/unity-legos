@@ -1,65 +1,106 @@
+namespace Pathfinding
 import UnityEngine
+import System
 import System.Collections.Generic
 import Mathf
 
-public class Address(IComparable):
+
+
+public class Address:
 """
-Immutable x, y address
+hashable X,Y 2d address
 """
+
 	public x as int
 	public y as int
 
 	def constructor(X as int, Y as int):
 		x = X
-		y = Y
-		
+		y = Y		
+
 	override def ToString():
 		return string.Format("({0},{1})", x, y)
-		
+
 	override def GetHashCode():
-		return ToString().GetHashCode()
+		return (x + 23) ^ (( y + 37) << 16)
 
 	override def Equals(other):
-		comp = other as Address
-		if not comp:
-			return false
-		return comp.x == x and comp.y == y
-
-		
-	def CompareTo(other):
-		return GetHashCode().CompareTo(other.GetHashCode())
-		
-				
-	def dist(other as Address):
-		dx = other.x - x
-		dy = other.y - y
-		return Mathf.Sqrt( Mathf.Pow(dx, 2) + Mathf.Pow(dy, 2))
+		return GetHashCode() == other.GetHashCode()
 
 
-public class OpenList:
+	
+public class SortQueue[of T]:
 """
-Sorted list of Addresses.  Pops highest weights first
+Items are sorted as added; Pop() returns first item
 """
-	m_list as SortedList[of Address, single]
 
-	def constructor():
-		m_list = SortedList[of Address, single]()
+	contents as List[of T]
+	weights as List[of single]
+	members as HashSet[of T]
 
-	count as int:
+	[Getter(Min)]
+	min as single
+	
+	[Getter(Max)]
+	max as single
+	
+	public Count as int:
 		get:
-			return m_list.Count
+			return weights.Count
 
-	def pop():
-		result = m_list.Keys[0]
-		m_list.RemoveAt(0 )
+	public def constructor():
+		min = 0.0
+		max = 0.0
+		contents = List[of T]()
+		weights = List[of single]()
+		members = HashSet[of T]()
+
+	def Add (item as T, score as single):
+		if item in members:
+			for idx as int, existing as T in enumerate(contents):
+				if item == existing:
+					contents.RemoveAt(idx)
+					weights.RemoveAt(idx)
+					break
+		else:
+			members.Add(item)
+
+		insertion_point = bisect(0, weights.Count, score)
+		contents.Insert(insertion_point, item)
+		weights.Insert(insertion_point, score)
+		min = Min(min, score)
+		max = Max(max, score)
+
+
+	def Pop() as T:
+		result = contents[0]
+		weights.RemoveAt(0)
+		contents.RemoveAt(0)
 		return result
 
-	def add( weight as single, addr as Address):
-		if addr in m_list:
-			m_list.Remove(addr)
-		m_list.Add( addr, weight )
+	def Clear():
+		min = 0.0
+		max = 0.0
+		members.Clear()
+		weights.Clear()
+		contents.Clear()
 
+	private def bisect(first_index as int,  last_index as int, score as single) as int:
+		delta = last_index - first_index
+		if delta == 0:
+			return first_index
+		if delta == 1:
+			return last_index
 
+		midpoint = first_index + (delta / 2)
+		test_w = weights[midpoint]
+
+		if test_w == score:
+			return midpoint
+
+		if test_w < score:
+			return bisect(midpoint, last_index, score)
+		return bisect(first_index, midpoint, score)
 
 
 public class Edge (IComparable):
@@ -92,9 +133,10 @@ From > To address pair
 	def CompareTo(other):
 		return GetHashCode().CompareTo(other.GetHashCode())
 
+
 public class WeightedLink:
 """
-bundle a destination, weight pair
+Destination, weight pair
 """
 	public address as Address
 	public weight as single
@@ -104,34 +146,72 @@ bundle a destination, weight pair
 		weight = w
 
 
-public class Map:
+public class Map(ScriptableObject):
+"""
+2-D array of cells connected by edges. 
 
-	public x_size as int
-	public y_size as int
-	public m_cells as Dictionary[of Address, single]
-	public m_edges as Dictionary[of Edge, single]
+Cells and Edges can both have costs (by default an edge cost )
+"""
 
-	public cell_count:
+	
+	width as int
+	height as int
+	cells = Dictionary[of Address, single]()
+	edges = Dictionary[of Edge, single]()
+
+	public Size:
 		get:
-			return x_size * y_size
+			return width * height
 
-	public def constructor( width as int, height as int):
-		x_size = width
-		y_size = height
+	public Width:
+		get:
+			return width
+		set:
+			width = value
+			rebuild()
 
-		m_cells = Dictionary[of Address, single]()
-		m_edges = Dictionary[of Edge, single]()
-		addresses = (Address(x,y) for x in range(x_size) for y in range(y_size))
+	public Height:
+		get:
+			return height
+		set: 
+			height = value
+			rebuild()
+
+	def rebuild():
+	"""
+	create the map edge connections
+	"""
+		addresses = (Address(x,y) for x in range(width) for y in range(height))
+		
+		sqrdist = { a as Address, b as Address | Abs(b.x - a.x) + Abs(b.y - a.y) } 
+		costs = { 0: 0.0, 1:1.0, 2: 1.414}
+		get_cost  = { a as Address, b as Address | costs[sqrdist(a, b)] }
+
 		
 		for addr in addresses:
-			m_cells[addr] = 1.0
+			cells[addr] = 1.0
 			for conn in connections(addr):
-				m_edges[Edge(addr, conn)] = addr.dist(conn)
+				new_edge = Edge(addr, conn)
+				if new_edge not in edges:
+					edges[new_edge] = get_cost (addr, conn)
 
+		counter = 0
+
+		invalid_cell = {a as Address | a.x >= width or  a.y >= height}
+		delenda = [each_cell for each_cell in cells.Keys if invalid_cell(each_cell)]
+		for d in delenda:
+			cells.Remove(d)
+
+		invalid_edge = {e as Edge | not (cells.ContainsKey(e.start) and cells.ContainsKey(e.end))}
+		dead_edges = [each_edge for each_edge in edges.Keys if invalid_edge(each_edge)]
+		for de in dead_edges:
+			edges.Remove(de)
+
+		Debug.Log(string.Format("Removed {0} cells", counter))
 
 	def connections(addr as Address):
-		valid_x = { t as Address | t.x > -1 and t.x < x_size}
-		valid_y = { t as Address | t.y > -1 and t.y < y_size}
+		valid_x = { t as Address | t.x > -1 and t.x < width}
+		valid_y = { t as Address | t.y > -1 and t.y < height}
 		is_valid = { t as Address | t != addr and valid_x(t) and valid_y(t) }
 
 		for x_offset in (-1, 0, 1):
@@ -145,73 +225,77 @@ public class Map:
 	return the edge cost and the cell cost for all of the neighbors of addre
 	"""
 		for conn in connections(addr):
-			yield WeightedLink(conn, m_edges[Edge(addr, conn)] + m_cells[conn])
+			yield WeightedLink(conn, edges[Edge(addr, conn)] + cells[conn])
 
 	def cell_set(addr as Address, cell as single):
-		m_cells[addr] = cell
+		cells[addr] = cell
 
 	def cell_get(addr as Address):
-		return m_cells[addr]
+		return cells[addr]
 
 	def edge_set (edge as Edge, cost as single):
-		m_edges[edge] =cost
+		edges[edge] =cost
 
 	def edge_get(edge as Edge):
-		return m_edges[edge]
+		return edges[edge]
 
 
 public class MapSearch:
 
-	m_OpenList as OpenList
+	open_nodes as SortQueue[of Address]
 	m_map as Map
 	m_links as Dictionary[of Address, Address]
 
 	public m_costs as Dictionary[of Address, single]
-	public m_accuracy = 5
-	public m_steer = 1
+	public m_accuracy = 1
+	visited as  List[of Address]
 
 	def constructor(map_data as Map):
 		m_map = map_data
-		m_OpenList = OpenList()
+		open_nodes = SortQueue[of Address]()
 		m_links = Dictionary[of Address, Address]()
 		m_costs = Dictionary[of Address, single]()
+		visited = List[of Address]()
 
 
 	def search(start as Address, end as Address):
 
+		visited.Clear()
 		m_costs.Clear()
 		m_links.Clear()
-		m_OpenList = OpenList()
-		m_costs[start] = -1.0
+		open_nodes.Clear()
+		m_costs[start] = 0.0
 		m_links[start] = start
-		m_OpenList.add(0.0, start) 
+		open_nodes.Add(start, 0)
 
 		found = single.MaxValue
 		found_count = 0
 
-		while m_OpenList.count > 0 and found_count < m_accuracy:
-			current_node = m_OpenList.pop() 
+		while open_nodes.Count > 0 and found_count < m_accuracy:
+			current_node = open_nodes.Pop() 
 			cost_to_here = m_costs[current_node]
 
 			for weightedLink in m_map.links(current_node):
 				next_link = weightedLink.address
 				next_cost = weightedLink.weight
-
-				if  next_link not in m_costs:
-					m_costs[next_link] = single.MaxValue
-				
-				node_cost = m_costs[next_link]
 				predicted_cost = cost_to_here + next_cost 
 
+				if  next_link not in m_costs:
+					m_costs[next_link] = single.MaxValue				
+				node_cost = m_costs[next_link]
+				
 				if next_link == end:	
 					found = Mathf.Min(found, predicted_cost)
 					found_count += 1
 
-				if predicted_cost < node_cost and predicted_cost < found:
-					guess_cost =  heuristic(next_link, end)
-					m_OpenList.add(	guess_cost, next_link)# does this sort right?
+				if predicted_cost <= node_cost and predicted_cost <=  found:
+					guess_cost = heuristic(next_link, end)
+					open_nodes.Add(next_link, guess_cost)
 					m_links[next_link] = current_node
 					m_costs[next_link] = predicted_cost
+					
+				
+			visited.Add(current_node)
 
 		if found == single.MaxValue:
 			return List[of Address]()
@@ -225,13 +309,13 @@ public class MapSearch:
 		while prev != st:
 			prev = m_links[prev] 
 			result.Add(prev)	
-
 		return result
 
 
 	def heuristic(current as Address, end as Address):
-		return current.x
-		return Vector2.Distance(Vector2(end.x, end.y) ,Vector2(current.x, current.y)) *  m_steer
+		return Vector2.Distance(
+			Vector2(end.x, end.y),
+			Vector2(current.x, current.y)) 
 
 public class boomap(MonoBehaviour):
 	
@@ -244,13 +328,19 @@ public class boomap(MonoBehaviour):
 	public m_results as (Address)
 	public m_search as MapSearch
 	public m_accuracy = 5
-	public m_steer = 1
 	
 	def OnValidate():
-		m_map = Map(m_width, m_height)
+		if m_map is null:
+			m_map = ScriptableObject.CreateInstance(Map)
+		m_map.Width = m_width
+		m_map.Height = m_height
+		m_map.cell_set(Address(2,3), 10)
+		m_map.cell_set(Address(3,2), 10)
+		m_map.cell_set(Address(4,1), 10)
+			
+		
 		m_search = MapSearch(m_map)
 		m_search.m_accuracy = m_accuracy
-		m_search.m_steer = m_steer
 		result = m_search.search(Address(m_start.x, m_start.y), Address(m_end.x, m_end.y))
 		m_results = array(Address, result)
 	
@@ -261,15 +351,15 @@ public class boomap(MonoBehaviour):
 		p = gameObject.transform.position
 		Gizmos.matrix = transform.localToWorldMatrix
 		Gizmos.color = Color.gray
-		for x in range(m_map.x_size + 1):
+		for x in range(m_map.Width + 1):
 			st = Vector3(x, 0, 0)
-			en = Vector3(x, 0, m_map.y_size)
+			en = Vector3(x, 0, m_map.Height)
 			Gizmos.DrawLine(st, en)
 			
 			
-		for y in range(0, m_map.y_size + 1):
+		for y in range(0, m_map.Height + 1):
 			st = Vector3(0,0, y)
-			en = Vector3(m_map.x_size, 0, y)
+			en = Vector3(m_map.Width, 0, y)
 			Gizmos.DrawLine(st, en)
 			
 		if len(m_results) > 0:
@@ -293,8 +383,8 @@ class MapHandle (Editor):
 		p = go.transform.position
 		Handles.color = Color.yellow
 		Handles.matrix = t
-		for x in range(bm.m_map.x_size):
-			for y in range(bm.m_map.y_size):
+		for x in range(bm.m_map.Width):
+			for y in range(bm.m_map.Height):
 				ad = Address(x, y)
 				pos = Vector3(x +0.25 , 0, y + 0.5)
 				#Handles.Label(pos, ad.ToString())
