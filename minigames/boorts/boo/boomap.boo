@@ -57,6 +57,7 @@ class MapHandle (Editor):
 	def OnSceneGUI():
 		bm = target as boomap
 		go = bm.gameObject
+		
 		t = go.transform.localToWorldMatrix
 		p = go.transform.position
 		Handles.color = Color.yellow
@@ -65,7 +66,7 @@ class MapHandle (Editor):
 			for y in range(bm.m_map.Height):
 				ad = Address(x, y)
 				pos = Vector3(x +0.25 , 0, y + 0.5)
-				#Handles.Label(pos, ad.ToString())
+				Handles.Label(pos, bm.m_map.cell_get(ad).ToString())
 				if ad in bm.m_search.m_costs:
 					pos2 = pos + Vector3(0,0, .25)				
 					cost = bm.m_search.m_costs[ad]

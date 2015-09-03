@@ -4,11 +4,28 @@ import System
 import System.Collections.Generic
 import UnityEditor
 
-
-class MapEditor(EditorWindow):
+[CustomEditor(Map)]
+class MapEditor(Editor):
 
 	static aBaseName = "Map"
+	fred as Vector3
 	
+	
+	override def OnInspectorGUI():
+		MapTarget = target as Map
+
+		MapTarget.Width = EditorGUILayout.IntField("U", MapTarget.Width)
+		MapTarget.Height = EditorGUILayout.IntField("V", MapTarget.Height)
+
+
+		fred = EditorGUILayout.Vector3Field("Fred", fred)
+		
+		if GUILayout.Button("Set"):
+			ad = Address(fred.x, fred.y)
+			MapTarget.cell_set(ad, fred.z)
+		
+
+
 	[UnityEditor.MenuItem("Assets/Create/Map", false, 101)]			
 	static def CreateMap():
 		
@@ -31,3 +48,6 @@ class MapEditor(EditorWindow):
 		UnityEditor.EditorUtility.FocusProjectWindow();
 		UnityEditor.Selection.activeObject = new_map
 		Debug.Log(mapname)
+
+
+

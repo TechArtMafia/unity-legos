@@ -159,6 +159,43 @@ Cells and Edges can both have costs (by default an edge cost )
 	[SerializeField]	
 	height as int
 	
+	[SerializeField]
+	_cells  as (Address)
+
+	[SerializeField]
+	_cell_values as (single)
+
+	[SerializeField]
+	_edges as (Edge)
+
+	[SerializeField]
+	_edge_values as (single)
+
+
+	def OnBeforeSerialize():
+		_edges = array(Edge, edges.Count)
+		_edge_values = array(single, edges.Count)
+		for idx as int, kv as KeyValuePair[of Edge, single] in enumerate(edges):
+			_edges[idx] = kv.Key
+			_edge_values[idx] = kv.Value
+			
+		_cells = array(Address, cells.Count)
+		_cell_values = array(single, cells.Count)
+		for idx as int, kv as KeyValuePair[of Address, single] in enumerate(cells):
+			_cells[idx] = kv.Key
+			_cell_values[idx] = kv.Value
+		
+
+	def OnAfterDeserialize():
+		Debug.Log("Reloading map")
+		cells = Dictionary[of Address, single]()
+		edges = Dictionary[of Edge, single]()
+		for k as Address, v as single in zip(_cells, _cell_values):
+			cells[k] = v
+
+		for ke as Edge, ve as single in zip(_edges, _edge_values):
+			edges[ke] = ve
+
 	cells = Dictionary[of Address, single]()
 	edges = Dictionary[of Edge, single]()
 
