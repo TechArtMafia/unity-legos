@@ -6,13 +6,26 @@ import Mathf
 import UnityEditor
 
 [Serializable]
+public class Cell:
+
+	static public final cost = 1.0
+	static final name = "empty"
+
+public class Hills (Cell):
+
+	override static public final cost = 2.5
+	override static public final name = "hills"
+
+
+
+[Serializable]
 public class Address:
 """
 hashable X,Y 2d address
 """
 
-	public x as int
-	public y as int
+	public final x as int
+	public final y as int
 
 	def constructor(X as int, Y as int):
 		x = X
