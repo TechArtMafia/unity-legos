@@ -133,7 +133,7 @@ From > To address pair
 	def CompareTo(other):
 		return GetHashCode().CompareTo(other.GetHashCode())
 
-
+[Serializable]
 public class WeightedLink:
 """
 Destination, weight pair
@@ -146,7 +146,7 @@ Destination, weight pair
 		weight = w
 
 
-public class Map(ScriptableObject):
+public class Map(ScriptableObject, ISerializationCallbackReceiver):
 """
 2-D array of cells connected by edges. 
 
@@ -172,30 +172,6 @@ Cells and Edges can both have costs (by default an edge cost )
 	_edge_values as (single)
 
 
-	def OnBeforeSerialize():
-		_edges = array(Edge, edges.Count)
-		_edge_values = array(single, edges.Count)
-		for idx as int, kv as KeyValuePair[of Edge, single] in enumerate(edges):
-			_edges[idx] = kv.Key
-			_edge_values[idx] = kv.Value
-			
-		_cells = array(Address, cells.Count)
-		_cell_values = array(single, cells.Count)
-		for idx as int, kv as KeyValuePair[of Address, single] in enumerate(cells):
-			_cells[idx] = kv.Key
-			_cell_values[idx] = kv.Value
-		
-
-	def OnAfterDeserialize():
-		Debug.Log("Reloading map")
-		cells = Dictionary[of Address, single]()
-		edges = Dictionary[of Edge, single]()
-		for k as Address, v as single in zip(_cells, _cell_values):
-			cells[k] = v
-
-		for ke as Edge, ve as single in zip(_edges, _edge_values):
-			edges[ke] = ve
-
 	cells = Dictionary[of Address, single]()
 	edges = Dictionary[of Edge, single]()
 
@@ -208,23 +184,51 @@ Cells and Edges can both have costs (by default an edge cost )
 			return width
 		set:
 			width = value
+			Rebuild()
 
 	public Height:
 		get:
 			return height
 		set: 
 			height = value
+			Rebuild()
 
 
 	def OnEnabled():
 		print "OnEnabled" 
 		
+		
+	def OnBeforeSerialize():
+		_edges = array(Edge, edges.Count)
+		_edge_values = array(single, edges.Count)
+		for idx as int, kv as KeyValuePair[of Edge, single] in enumerate(edges):
+			_edges[idx] = kv.Key
+			_edge_values[idx] = kv.Value
+			
+		_cells = array(Address, cells.Count)
+		_cell_values = array(single, cells.Count)
+		for idx as int, kv as KeyValuePair[of Address, single] in enumerate(cells):
+			_cells[idx] = kv.Key
+			_cell_values[idx] = kv.Value
+
+
+	def OnAfterDeserialize():
+		Debug.Log("AfterLoad")
+		cells = Dictionary[of Address, single]()
+		edges = Dictionary[of Edge, single]()
+		for k as Address, v as single in zip(_cells, _cell_values):
+			cells[k] = v
+
+		for ke as Edge, ve as single in zip(_edges, _edge_values):
+			edges[ke] = ve
 	
 
-	def OnValidate():
+	def Rebuild():
 	"""
 	create the map edge connections
 	"""
+		Debug.Log("Rebuild")
+	
 		addresses = (Address(x,y) for x in range(width) for y in range(height))
 		
 		sqrdist = { a as Address, b as Address | Abs(b.x - a.x) + Abs(b.y - a.y) } 
@@ -233,7 +237,8 @@ Cells and Edges can both have costs (by default an edge cost )
 
 		
 		for addr in addresses:
-			cells[addr] = 1.0
+			if not addr in cells:
+				cells[addr]  = 1
 			for conn in connections(addr):
 				new_edge = Edge(addr, conn)
 				if new_edge not in edges:
@@ -244,6 +249,7 @@ Cells and Edges can both have costs (by default an edge cost )
 		invalid_cell = {a as Address | a.x >= width or  a.y >= height}
 		delenda = [each_cell for each_cell in cells.Keys if invalid_cell(each_cell)]
 		for d in delenda:
+			counter += 1
 			cells.Remove(d)
 
 		invalid_edge = {e as Edge | not (cells.ContainsKey(e.start) and cells.ContainsKey(e.end))}
@@ -271,14 +277,24 @@ Cells and Edges can both have costs (by default an edge cost )
 		for conn in connections(addr):
 			yield WeightedLink(conn, edges[Edge(addr, conn)] + cells[conn])
 
-	def cell_set(addr as Address, cell as single):
-		cells[addr] = cell
+	def cell_set(addr as Address, val as single):
+		cells[addr] = val
+		p as System.Predicate[of Address] =  { e as Address | e == addr } 
+		addr_key = System.Array.FindIndex(_cells, p)
+		_cell_values[addr_key] = val
+		Debug.Log( string.Format("set {0} : {1}", addr_key, val))
 
 	def cell_get(addr as Address):
 		return cells[addr]
 
 	def edge_set (edge as Edge, cost as single):
-		edges[edge] =cost
+		edges[edge] = cost
+		
+		p as System.Predicate[of Edge] =  { e as Edge | e == edge } 
+		
+		edge_key = System.Array.FindIndex(_edges, p)
+		_edge_values[edge_key] = cost
+		
 
 	def edge_get(edge as Edge):
 		return edges[edge]

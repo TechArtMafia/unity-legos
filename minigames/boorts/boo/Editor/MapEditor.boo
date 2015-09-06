@@ -13,17 +13,23 @@ class MapEditor(Editor):
 	
 	override def OnInspectorGUI():
 		MapTarget = target as Map
+		GUI.changed = false
 
 		MapTarget.Width = EditorGUILayout.IntField("U", MapTarget.Width)
 		MapTarget.Height = EditorGUILayout.IntField("V", MapTarget.Height)
-
+		if GUI.changed:
+			EditorUtility.SetDirty(MapTarget)
+			Debug.Log("Dirty")
 
 		fred = EditorGUILayout.Vector3Field("Fred", fred)
 		
 		if GUILayout.Button("Set"):
-			ad = Address(fred.x, fred.y)
+			ad = Address(fred.x cast int, fred.y cast int)
 			MapTarget.cell_set(ad, fred.z)
-		
+			EditorUtility.SetDirty(MapTarget)
+			Debug.Log("Dirty")
+		GUI.changed = false
+
 
 
 	[UnityEditor.MenuItem("Assets/Create/Map", false, 101)]			
