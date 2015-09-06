@@ -54,11 +54,18 @@ public class boomap(MonoBehaviour):
 [CustomEditor(boomap)]
 class MapHandle (Editor):
 	
+	_x as int
+	_y as int
+	_v as single
+	_pp as Vector3 = Vector3(2,0,2)
+	_off as Vector3 = Vector3(.5, 0, .5)
+	_selection as Vector3
+	
 	def OnSceneGUI():
 		bm = target as boomap
 		go = bm.gameObject
 		
-		t = go.transform.localToWorldMatrix
+		t = go.transform.localToWorldMatrix 
 		p = go.transform.position
 		Handles.color = Color.yellow
 		Handles.matrix = t
@@ -72,10 +79,19 @@ class MapHandle (Editor):
 					cost = bm.m_search.m_costs[ad]
 					if cost < single.MaxValue:
 						Handles.Label(pos2, string.Format("{0:0.0}", cost))
-				#c2 = Handles.Slider(pos2, Vector3.up, cost, Handles.ArrowCap, .01 ).z
-				#f GUI.changed:
-				#	bm.m_map.cell_set(ad, c2)
-				#	SceneView.RepaintAll()
-				#	Debug.Log(c2)
-
 				
+				
+		bob  = 0.25 cast single
+		
+		Handles.color = Color(1,1,0,.1)
+		_sz = HandleUtility.GetHandleSize(_pp)
+		_pp = Handles.Slider2D( _pp, Vector3.right, Vector3.forward, Vector3.right, bob, Handles.SphereCap, Vector2(1,1))
+		
+		_selection = Vector3(Mathf.RoundToInt(_pp.x - .5), 0 , Mathf.RoundToInt(_pp.z - .5) )
+		verts  = ( _selection, _selection + Vector3(0,0,1), _selection + Vector3(1,0, 1), _selection + Vector3(1,0,0)	)
+		Handles.DrawSolidRectangleWithOutline(verts, Color(1,1,1,0.2), Color.yellow)
+
+		if HandleUtility.niceMouseDelta == 0:
+			_pp = _selection + _off
+		
+		# todo: maake it modal - double click or key to switch from selection to editing
