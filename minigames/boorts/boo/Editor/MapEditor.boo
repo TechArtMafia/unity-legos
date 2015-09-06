@@ -25,7 +25,11 @@ class MapEditor(Editor):
 		
 		if GUILayout.Button("Set"):
 			ad = Address(fred.x cast int, fred.y cast int)
-			MapTarget.cell_set(ad, fred.z)
+			bob as Cell = Cell()
+			if fred.z > 1:
+				bob = Hills()
+			
+			MapTarget.cell_set(ad, bob)
 			EditorUtility.SetDirty(MapTarget)
 			Debug.Log("Dirty")
 		GUI.changed = false

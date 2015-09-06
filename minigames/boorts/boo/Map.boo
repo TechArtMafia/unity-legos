@@ -8,15 +8,27 @@ import UnityEditor
 [Serializable]
 public class Cell:
 
-	static public final cost = 1.0
-	static final name = "empty"
+	public virtual cost as single:
+		get:
+			return 1.0
+
+	public virtual name as string:
+		get:
+			return "empty"
+
+	public override def ToString():
+		return string.Format("{0}\n{1}", name, cost)
+
 
 public class Hills (Cell):
 
-	override static public final cost = 2.5
-	override static public final name = "hills"
+	public override cost as single:
+		get:
+			return 3.0
 
-
+	public override name as string:
+		get:
+			return "hills"
 
 [Serializable]
 public class Address:
@@ -176,7 +188,7 @@ Cells and Edges can both have costs (by default an edge cost )
 	_cells  as (Address)
 
 	[SerializeField]
-	_cell_values as (single)
+	_cell_values as (Cell)
 
 	[SerializeField]
 	_edges as (Edge)
@@ -185,7 +197,7 @@ Cells and Edges can both have costs (by default an edge cost )
 	_edge_values as (single)
 
 
-	cells = Dictionary[of Address, single]()
+	cells = Dictionary[of Address, Cell]()
 	edges = Dictionary[of Edge, single]()
 
 	public Size:
@@ -219,17 +231,17 @@ Cells and Edges can both have costs (by default an edge cost )
 			_edge_values[idx] = kv.Value
 			
 		_cells = array(Address, cells.Count)
-		_cell_values = array(single, cells.Count)
-		for idx as int, kv as KeyValuePair[of Address, single] in enumerate(cells):
+		_cell_values = array(Cell, cells.Count)
+		for idx as int, kv as KeyValuePair[of Address, Cell] in enumerate(cells):
 			_cells[idx] = kv.Key
 			_cell_values[idx] = kv.Value
 
 
 	def OnAfterDeserialize():
 		Debug.Log("AfterLoad")
-		cells = Dictionary[of Address, single]()
+		cells = Dictionary[of Address, Cell]()
 		edges = Dictionary[of Edge, single]()
-		for k as Address, v as single in zip(_cells, _cell_values):
+		for k as Address, v as Cell in zip(_cells, _cell_values):
 			cells[k] = v
 
 		for ke as Edge, ve as single in zip(_edges, _edge_values):
@@ -251,7 +263,7 @@ Cells and Edges can both have costs (by default an edge cost )
 		
 		for addr in addresses:
 			if not addr in cells:
-				cells[addr]  = 1
+				cells[addr]  = Cell()
 			for conn in connections(addr):
 				new_edge = Edge(addr, conn)
 				if new_edge not in edges:
@@ -288,9 +300,9 @@ Cells and Edges can both have costs (by default an edge cost )
 	return the edge cost and the cell cost for all of the neighbors of addre
 	"""
 		for conn in connections(addr):
-			yield WeightedLink(conn, edges[Edge(addr, conn)] + cells[conn])
+			yield WeightedLink(conn, edges[Edge(addr, conn)] + cells[conn].cost)
 
-	def cell_set(addr as Address, val as single):
+	def cell_set(addr as Address, val as Cell):
 		cells[addr] = val
 		p as System.Predicate[of Address] =  { e as Address | e == addr } 
 		addr_key = System.Array.FindIndex(_cells, p)
