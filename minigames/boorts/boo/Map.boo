@@ -20,6 +20,7 @@ public class Cell:
 		return string.Format("{0}\n{1}", name, cost)
 
 
+
 public class Hills (Cell):
 
 	public override cost as single:
@@ -218,15 +219,14 @@ Cells and Edges can both have costs (by default an edge cost )
 			height = value
 			Rebuild()
 
-
-	def OnEnabled():
-		print "OnEnabled" 
-		
 		
 	def OnBeforeSerialize():
 		_edges = array(Edge, edges.Count)
 		_edge_values = array(single, edges.Count)
 		for idx as int, kv as KeyValuePair[of Edge, single] in enumerate(edges):
+			Debug.Log("storing")
+			Debug.Log(kv.Key)
+			Debug.Log(kv.Value)
 			_edges[idx] = kv.Key
 			_edge_values[idx] = kv.Value
 			
@@ -299,9 +299,17 @@ Cells and Edges can both have costs (by default an edge cost )
 	"""
 	return the edge cost and the cell cost for all of the neighbors of addre
 	"""
-		for conn in connections(addr):
+		if _edges.Length == 1:
+			Rebuild()
+		else:
+			for e in edges:
+				Debug.Log(e)
+			Debug.Log("----")
+			for ee, ef in zip(_edges, _edge_values):
+				Debug.Log(string.Format (">> {0}: {1}", ee, ef))
+		for conn in connections	(addr):
 			yield WeightedLink(conn, edges[Edge(addr, conn)] + cells[conn].cost)
-
+			
 	def cell_set(addr as Address, val as Cell):
 		cells[addr] = val
 		p as System.Predicate[of Address] =  { e as Address | e == addr } 
@@ -313,10 +321,8 @@ Cells and Edges can both have costs (by default an edge cost )
 		return cells[addr]
 
 	def edge_set (edge as Edge, cost as single):
-		edges[edge] = cost
-		
+		edges[edge] = cost		
 		p as System.Predicate[of Edge] =  { e as Edge | e == edge } 
-		
 		edge_key = System.Array.FindIndex(_edges, p)
 		_edge_values[edge_key] = cost
 		

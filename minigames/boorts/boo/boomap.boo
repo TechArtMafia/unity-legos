@@ -15,8 +15,9 @@ public class boomap(MonoBehaviour):
 	public m_search as MapSearch
 	public m_accuracy = 5
 	
+
+
 	def OnValidate():			
-		
 		m_search = MapSearch(m_map)
 		m_search.m_accuracy = m_accuracy
 		result = m_search.search(Address(m_start.x, m_start.y), Address(m_end.x, m_end.y))

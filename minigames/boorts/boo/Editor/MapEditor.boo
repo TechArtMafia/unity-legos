@@ -4,42 +4,59 @@ import System
 import System.Collections.Generic
 import UnityEditor
 
-[CustomEditor(Map)]
+[CustomEditor(Map2)]
 class MapEditor(Editor):
 
-	static aBaseName = "Map"
+	static aBaseName = "Map2"
 	fred as Vector3
 	
+	_type_names as (string)
 	
 	override def OnInspectorGUI():
-		MapTarget = target as Map
+		if not _type_names:
+			_type_names = [v for v in System.Enum.GetNames(MapType)].ToArray(string)
+		MapTarget = target as Map2
 		GUI.changed = false
 
 		MapTarget.Width = EditorGUILayout.IntField("U", MapTarget.Width)
 		MapTarget.Height = EditorGUILayout.IntField("V", MapTarget.Height)
+	
 		if GUI.changed:
 			EditorUtility.SetDirty(MapTarget)
 			Debug.Log("Dirty")
-
-		fred = EditorGUILayout.Vector3Field("Fred", fred)
-		
-		if GUILayout.Button("Set"):
-			ad = Address(fred.x cast int, fred.y cast int)
-			bob as Cell = Cell()
-			if fred.z > 1:
-				bob = Hills()
 			
-			MapTarget.cell_set(ad, bob)
-			EditorUtility.SetDirty(MapTarget)
-			Debug.Log("Dirty")
-		GUI.changed = false
+		for u in range(MapTarget.Width):
+			for v in range (MapTarget.Height):
+				display_item(u,v, MapTarget)
+
+
+		if GUILayout.Button("Save"):
+			Debug.Log("Saved")
+			AssetDatabase.SaveAssets()
+
+		if GUILayout.Button("Test"):
+			for u in range(MapTarget.Width):
+				for v in range (MapTarget.Height):
+					Debug.Log(string.Format("{0},{1}: {2}",u,v,MapTarget[u,v] ))
+	def display_item(u, v, _map as Map2):
+		
+
+		EditorGUILayout.BeginHorizontal()
+		GUILayout.Label( string.Format("({0},{1})", u, v))
+		try:
+			index  = _map[u,v] cast int
+			index = EditorGUILayout.Popup(index, _type_names)
+			_map[u, v] = index cast MapType
+		except:
+			pass
+		EditorGUILayout.EndHorizontal()
 
 
 
-	[UnityEditor.MenuItem("Assets/Create/Map", false, 101)]			
+	[UnityEditor.MenuItem("Assets/Create/Map2", false, 101)]			
 	static def CreateMap():
 		
-		new_map = ScriptableObject.CreateInstance(Map)
+		new_map = ScriptableObject.CreateInstance(Map2)
 		path = UnityEditor.AssetDatabase.GetAssetPath(UnityEditor.Selection.activeInstanceID)
 
 		if System.IO.Path.GetExtension(path) != "":
@@ -49,7 +66,7 @@ class MapEditor(Editor):
 
 		mapname = path + "/" + aBaseName + ".asset"
 		id   = 0
-		while (UnityEditor.AssetDatabase.LoadAssetAtPath(mapname, Map) != null):
+		while (UnityEditor.AssetDatabase.LoadAssetAtPath(mapname, Map2) != null):
 		    id  += 1
 		    mapname = path + "/" + aBaseName + id + ".asset"
 
