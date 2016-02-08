@@ -76,6 +76,8 @@ Cells and Edges can both have costs (by default an edge cost )
 			cell_set (cells, width, u, v, value)
 			
 
+
+
 public class Map2(ScriptableObject):
 	
 
@@ -101,3 +103,13 @@ public class Map2(ScriptableObject):
 			
 		set:
 			m_map[u, v] = value
+
+	public def neighborhood(u as int, v as int) as (int)*:
+		min_u = Mathf.Max(0, u - 1)
+		min_v = Mathf.Max(0, v - 1)
+		max_u = Mathf.Max(Width - 1, u + 1)
+		max_v = Mathf.Max(Height -1, v + 1)
+		for uu in (min_u, u, max_u):
+			for vv in (min_v, v, max_v):
+				if (uu, vv) != (u, v):
+					yield (uu, vv)
